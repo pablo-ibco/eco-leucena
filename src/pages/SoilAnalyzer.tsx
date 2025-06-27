@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Camera, RotateCcw, Download, Leaf, AlertTriangle, CheckCircle, Info, X } from 'lucide-react';
 
 interface SoilAnalysis {
@@ -17,9 +17,19 @@ const SoilAnalyzer: React.FC = () => {
   const [showCamera, setShowCamera] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isLoadingCamera, setIsLoadingCamera] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+
+  // Cleanup camera on unmount
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
 
   // Simulated soil analysis function
   const analyzeSoil = useCallback((imageData: string): Promise<SoilAnalysis> => {
@@ -92,6 +102,7 @@ const SoilAnalyzer: React.FC = () => {
   const startCamera = async () => {
     setIsLoadingCamera(true);
     setCameraError(null);
+    setCameraReady(false);
     
     try {
       // Check if getUserMedia is supported
@@ -115,11 +126,21 @@ const SoilAnalyzer: React.FC = () => {
         setShowCamera(true);
         setIsLoadingCamera(false);
         
-        // Wait for video to load
+        // Wait for video to load and be ready
         videoRef.current.onloadedmetadata = () => {
           if (videoRef.current) {
-            videoRef.current.play();
+            videoRef.current.play().then(() => {
+              setCameraReady(true);
+            }).catch((error) => {
+              console.error('Erro ao reproduzir vídeo:', error);
+              setCameraError('Erro ao iniciar a câmera');
+            });
           }
+        };
+
+        videoRef.current.onerror = () => {
+          setCameraError('Erro ao carregar o vídeo da câmera');
+          setIsLoadingCamera(false);
         };
       }
     } catch (error: any) {
@@ -149,10 +170,11 @@ const SoilAnalyzer: React.FC = () => {
     }
     setShowCamera(false);
     setCameraError(null);
+    setCameraReady(false);
   };
 
   const capturePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
+    if (videoRef.current && canvasRef.current && cameraReady) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       const context = canvas.getContext('2d');
@@ -173,8 +195,10 @@ const SoilAnalyzer: React.FC = () => {
           setIsAnalyzing(false);
         });
       } else {
-        alert('Erro ao capturar foto. Tente novamente.');
+        alert('Erro ao capturar foto. Aguarde a câmera carregar completamente.');
       }
+    } else {
+      alert('Câmera não está pronta. Aguarde um momento.');
     }
   };
 
@@ -290,14 +314,26 @@ const SoilAnalyzer: React.FC = () => {
                 playsInline
                 muted
                 className="w-full max-w-md mx-auto rounded-lg border border-gray-300"
+                style={{ transform: 'scaleX(-1)' }} // Mirror the video
               />
               <canvas ref={canvasRef} className="hidden" />
+              
+              {!cameraReady && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-lg">
+                  <div className="text-white text-center">
+                    <div className="animate-spin w-8 h-8 border-2 border-white border-t-transparent rounded-full mx-auto mb-2"></div>
+                    <p>Carregando câmera...</p>
+                  </div>
+                </div>
+              )}
+              
               <div className="mt-4 text-center">
                 <button
                   onClick={capturePhoto}
-                  className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
+                  disabled={!cameraReady}
+                  className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Capturar Foto
+                  {cameraReady ? 'Capturar Foto' : 'Aguarde...'}
                 </button>
               </div>
             </div>
