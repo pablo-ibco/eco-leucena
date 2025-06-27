@@ -105,60 +105,65 @@ const SoilAnalyzer: React.FC = () => {
     setCameraReady(false);
     
     try {
-      // Check if getUserMedia is supported
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error('Câmera não suportada neste navegador');
       }
-
-      // Try to get camera access
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
-          facingMode: 'environment',
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
+          facingMode: { ideal: 'environment' },
+          width: { min: 320, ideal: 640, max: 1280 },
+          height: { min: 240, ideal: 480, max: 720 }
         } 
       });
-      
       streamRef.current = stream;
-      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         setShowCamera(true);
         setIsLoadingCamera(false);
-        
-        // Wait for video to load and be ready
+        let fallbackTimeout: ReturnType<typeof setTimeout> | null = null;
         videoRef.current.onloadedmetadata = () => {
           if (videoRef.current) {
             videoRef.current.play().then(() => {
               setCameraReady(true);
+              if (fallbackTimeout) clearTimeout(fallbackTimeout);
             }).catch((error) => {
-              console.error('Erro ao reproduzir vídeo:', error);
-              setCameraError('Erro ao iniciar a câmera');
+              setCameraError('Erro ao iniciar a câmera. Tente novamente.');
             });
           }
         };
-
-        videoRef.current.onerror = () => {
+        videoRef.current.oncanplay = () => {
+          setCameraReady(true);
+          if (fallbackTimeout) clearTimeout(fallbackTimeout);
+        };
+        videoRef.current.onerror = (e) => {
           setCameraError('Erro ao carregar o vídeo da câmera');
           setIsLoadingCamera(false);
         };
+        // Fallback: if video doesn't load in 7 seconds, show error and debug info
+        fallbackTimeout = setTimeout(() => {
+          if (!cameraReady && showCamera) {
+            setCameraError('A câmera demorou para carregar. Isso pode ser um bug do navegador ou do dispositivo. Tente recarregar a página ou usar outro navegador/dispositivo.');
+            setIsLoadingCamera(false);
+          }
+        }, 7000);
+      } else {
+        setCameraError('Elemento de vídeo não encontrado. Isso pode ser um bug do navegador.');
+        setIsLoadingCamera(false);
       }
     } catch (error: any) {
-      console.error('Erro ao acessar câmera:', error);
       setIsLoadingCamera(false);
-      
       let errorMessage = 'Erro ao acessar a câmera';
-      
       if (error.name === 'NotAllowedError') {
-        errorMessage = 'Permissão de câmera negada. Por favor, permita o acesso à câmera.';
+        errorMessage = 'Permissão de câmera negada. Por favor, permita o acesso à câmera nas configurações do navegador.';
       } else if (error.name === 'NotFoundError') {
         errorMessage = 'Nenhuma câmera encontrada no dispositivo.';
       } else if (error.name === 'NotSupportedError') {
         errorMessage = 'Câmera não suportada neste navegador.';
+      } else if (error.name === 'NotReadableError') {
+        errorMessage = 'Câmera está sendo usada por outro aplicativo. Feche outros apps que usam a câmera.';
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
       setCameraError(errorMessage);
     }
   };
@@ -290,6 +295,20 @@ const SoilAnalyzer: React.FC = () => {
                     Testar Simulação
                   </button>
                 </div>
+                
+                {/* Debug Info */}
+                <details className="mt-3">
+                  <summary className="text-sm text-gray-600 cursor-pointer hover:text-gray-800">
+                    🔧 Informações de Debug
+                  </summary>
+                  <div className="mt-2 p-2 bg-gray-100 rounded text-xs text-gray-700">
+                    <p><strong>Navegador:</strong> {navigator.userAgent}</p>
+                    <p><strong>HTTPS:</strong> {window.location.protocol === 'https:' ? 'Sim' : 'Não'}</p>
+                    <p><strong>MediaDevices:</strong> {navigator.mediaDevices ? 'Suportado' : 'Não suportado'}</p>
+                    <p><strong>getUserMedia:</strong> {typeof navigator.mediaDevices?.getUserMedia === 'function' ? 'Suportado' : 'Não suportado'}</p>
+                    <p><strong>URL:</strong> {window.location.href}</p>
+                  </div>
+                </details>
               </div>
             )}
           </div>
@@ -314,27 +333,38 @@ const SoilAnalyzer: React.FC = () => {
                 playsInline
                 muted
                 className="w-full max-w-md mx-auto rounded-lg border border-gray-300"
-                style={{ transform: 'scaleX(-1)' }} // Mirror the video
+                style={{ transform: 'scaleX(-1)' }}
+                id="debug-video-element"
               />
               <canvas ref={canvasRef} className="hidden" />
-              
               {!cameraReady && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-lg">
                   <div className="text-white text-center">
                     <div className="animate-spin w-8 h-8 border-2 border-white border-t-transparent rounded-full mx-auto mb-2"></div>
                     <p>Carregando câmera...</p>
+                    <p className="text-sm opacity-75 mt-1">Aguarde um momento</p>
+                    <p className="text-xs mt-2">Debug: showCamera={String(showCamera)}, cameraReady={String(cameraReady)}</p>
                   </div>
                 </div>
               )}
-              
-              <div className="mt-4 text-center">
+              <div className="mt-4 text-center space-y-2">
                 <button
                   onClick={capturePhoto}
                   disabled={!cameraReady}
                   className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {cameraReady ? 'Capturar Foto' : 'Aguarde...'}
+                  {cameraReady ? '📸 Capturar Foto' : '⏳ Aguarde...'}
                 </button>
+                {cameraReady && (
+                  <p className="text-sm text-green-600">
+                    ✅ Câmera pronta! Posicione sobre o solo e clique em "Capturar Foto"
+                  </p>
+                )}
+                {!cameraReady && showCamera && (
+                  <p className="text-sm text-yellow-600">
+                    🔄 Inicializando câmera...
+                  </p>
+                )}
               </div>
             </div>
           </div>
