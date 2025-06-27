@@ -1,0 +1,9 @@
+export { default as CaracteristicasBeneficios } from './CaracteristicasBeneficios';
+export { default as HistoriaDistribuicao } from './HistoriaDistribuicao';
+export { default as AmigaOuInvasora } from './AmigaOuInvasora';
+export { default as GuiaPoda } from './GuiaPoda';
+export { default as ProducaoRacaoAnimal } from './ProducaoRacaoAnimal';
+export { default as CompostagemAduboOrganico } from './CompostagemAduboOrganico';
+export { default as EspeciesNativasReflorestamento } from './EspeciesNativasReflorestamento';
+export { default as SistemasAgroflorestais } from './SistemasAgroflorestais';
+export { default as BiodiversidadeControleEcologico } from './BiodiversidadeControleEcologico'; 

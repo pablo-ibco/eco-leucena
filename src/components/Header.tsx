@@ -25,6 +25,7 @@ const Header: React.FC = () => {
           <NavLink to="/reflorestamento">Reflorestamento</NavLink>
           <NavLink to="/recursos">Recursos</NavLink>
           <NavLink to="/jogo">Eco Game</NavLink>
+          <NavLink to="/equipe">Equipe</NavLink>
         </nav>
         
         {/* Mobile Menu Button */}
@@ -47,6 +48,7 @@ const Header: React.FC = () => {
             <NavLink to="/reflorestamento" onClick={toggleMenu}>Reflorestamento</NavLink>
             <NavLink to="/recursos" onClick={toggleMenu}>Recursos</NavLink>
             <NavLink to="/jogo" onClick={toggleMenu}>Eco Game</NavLink>
+            <NavLink to="/equipe" onClick={toggleMenu}>Equipe</NavLink>
           </div>
         </div>
       )}
