@@ -8,6 +8,7 @@ import Reforestation from './pages/Reforestation';
 import Resources from './pages/Resources';
 import Game from './pages/Game';
 import Team from './pages/Team';
+import SoilAnalyzer from './pages/SoilAnalyzer';
 import NotFound from './pages/NotFound';
 
 // Article imports
@@ -33,6 +34,7 @@ function App() {
           <Route path="recursos" element={<Resources />} />
           <Route path="jogo" element={<Game />} />
           <Route path="equipe" element={<Team />} />
+          <Route path="analise-solo" element={<SoilAnalyzer />} />
           
           {/* Article routes */}
           <Route path="artigos/caracteristicas-beneficios" element={<CaracteristicasBeneficios />} />
