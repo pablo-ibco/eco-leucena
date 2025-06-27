@@ -31,6 +31,31 @@ const SoilAnalyzer: React.FC = () => {
     };
   }, []);
 
+  // Set video srcObject only after video is in the DOM
+  useEffect(() => {
+    if (showCamera && videoRef.current && streamRef.current) {
+      setTimeout(() => {
+        if (videoRef.current && streamRef.current) {
+          videoRef.current.srcObject = streamRef.current;
+        }
+      }, 100);
+    }
+  }, [showCamera]);
+
+  // Fallback: set cameraReady to true if video is visible, even if events don't fire
+  useEffect(() => {
+    if (showCamera && videoRef.current && !cameraReady) {
+      const checkReady = setInterval(() => {
+        const vid = videoRef.current;
+        if (vid && vid.videoWidth > 0 && vid.videoHeight > 0) {
+          setCameraReady(true);
+          clearInterval(checkReady);
+        }
+      }, 300);
+      return () => clearInterval(checkReady);
+    }
+  }, [showCamera, cameraReady]);
+
   // Simulated soil analysis function
   const analyzeSoil = useCallback((imageData: string): Promise<SoilAnalysis> => {
     return new Promise((resolve) => {
@@ -116,40 +141,34 @@ const SoilAnalyzer: React.FC = () => {
         } 
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setShowCamera(true);
+      setShowCamera(true);
+      setIsLoadingCamera(false);
+      let fallbackTimeout: ReturnType<typeof setTimeout> | null = null;
+      videoRef.current.onloadedmetadata = () => {
+        if (videoRef.current) {
+          videoRef.current.play().then(() => {
+            setCameraReady(true);
+            if (fallbackTimeout) clearTimeout(fallbackTimeout);
+          }).catch((error) => {
+            setCameraError('Erro ao iniciar a câmera. Tente novamente.');
+          });
+        }
+      };
+      videoRef.current.oncanplay = () => {
+        setCameraReady(true);
+        if (fallbackTimeout) clearTimeout(fallbackTimeout);
+      };
+      videoRef.current.onerror = (e) => {
+        setCameraError('Erro ao carregar o vídeo da câmera');
         setIsLoadingCamera(false);
-        let fallbackTimeout: ReturnType<typeof setTimeout> | null = null;
-        videoRef.current.onloadedmetadata = () => {
-          if (videoRef.current) {
-            videoRef.current.play().then(() => {
-              setCameraReady(true);
-              if (fallbackTimeout) clearTimeout(fallbackTimeout);
-            }).catch((error) => {
-              setCameraError('Erro ao iniciar a câmera. Tente novamente.');
-            });
-          }
-        };
-        videoRef.current.oncanplay = () => {
-          setCameraReady(true);
-          if (fallbackTimeout) clearTimeout(fallbackTimeout);
-        };
-        videoRef.current.onerror = (e) => {
-          setCameraError('Erro ao carregar o vídeo da câmera');
+      };
+      // Fallback: if video doesn't load in 7 seconds, show error and debug info
+      fallbackTimeout = setTimeout(() => {
+        if (!cameraReady && showCamera) {
+          setCameraError('A câmera demorou para carregar. Isso pode ser um bug do navegador ou do dispositivo. Tente recarregar a página ou usar outro navegador/dispositivo.');
           setIsLoadingCamera(false);
-        };
-        // Fallback: if video doesn't load in 7 seconds, show error and debug info
-        fallbackTimeout = setTimeout(() => {
-          if (!cameraReady && showCamera) {
-            setCameraError('A câmera demorou para carregar. Isso pode ser um bug do navegador ou do dispositivo. Tente recarregar a página ou usar outro navegador/dispositivo.');
-            setIsLoadingCamera(false);
-          }
-        }, 7000);
-      } else {
-        setCameraError('Elemento de vídeo não encontrado. Isso pode ser um bug do navegador.');
-        setIsLoadingCamera(false);
-      }
+        }
+      }, 7000);
     } catch (error: any) {
       setIsLoadingCamera(false);
       let errorMessage = 'Erro ao acessar a câmera';
